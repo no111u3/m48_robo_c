@@ -25,40 +25,38 @@ AVRDUDE		   = avrdude
 
 clean:
 	rm -rf build/*.o build/*.elf 
-	rm -rf src/*.lst src/*.map
-
-lst:  $(PRG).lst
+	rm -rf build/*.lst src/*.map
 
 %.lst: %.elf
-	$(OBJDUMP) -h -S $< > $@
+	$(OBJDUMP) -h -S build/$< > build/$@
 
 # Rules for building the .text rom images
 
-%.hex: build/%.elf
-	$(OBJCOPY) -j .text -j .data -O ihex $< build/$@
+%.hex: %.elf
+	$(OBJCOPY) -j .text -j .data -O ihex build/$< build/$@
 
-%.srec: build/%.elf
-	$(OBJCOPY) -j .text -j .data -O srec $< build/$@
+%.srec: %.elf
+	$(OBJCOPY) -j .text -j .data -O srec build/$< build/$@
 
-%.bin: build/%.elf
-	$(OBJCOPY) -j .text -j .data -O binary $< build/$@
+%.bin: %.elf
+	$(OBJCOPY) -j .text -j .data -O binary build/$< build/$@
 
-%.write: build/%.hex
-	$(AVRDUDE) -c ft232r -p m48 -b2400 -U flash:w:$<:a
+%.write: %.hex
+	$(AVRDUDE) -c ft232r -p m48 -b2400 -U flash:w:build/$<:a
 
 # Rules for building the .eeprom rom images
 
-%_eeprom.hex: build/%.elf
-	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O ihex $< build/$@ \
+%_eeprom.hex: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O ihex build/$< build/$@ \
 	|| { echo empty $@ not generated; exit 0; }
 
-%_eeprom.srec: build/%.elf
-	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O srec $< build/$@ \
+%_eeprom.srec: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O srec build/$< build/$@ \
 	|| { echo empty $@ not generated; exit 0; }
 
-%_eeprom.bin: build/%.elf
-	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O binary $< build/$@ \
+%_eeprom.bin: %.elf
+	$(OBJCOPY) -j .eeprom --change-section-lma .eeprom=0 -O binary build/$< build/$@ \
 	|| { echo empty $@ not generated; exit 0; }
 
-%_eeprom.write: build/%_eeprom.hex
+%_eeprom.write: %_eeprom.hex
 	$(AVRDUDE) -c ft232r -p m48 -b2400 -U eeprom:w:$<:a
