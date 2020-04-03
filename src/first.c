@@ -1,6 +1,7 @@
 #define F_CPU 8000000L
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
 
 #define XTAL F_CPU
@@ -14,6 +15,19 @@
 #define LED_PORT PORTD
 #define LED_DDR DDRD
 
+ISR(USART_RX_vect) {
+	switch (UDR0) {
+		case '1':
+			LED_PORT = 1 << LED2;
+			break;
+		case '2':
+			LED_PORT = 0 << LED2;
+			break;
+		default:
+			break;
+	}
+}
+
 void hwinit(void) {
 	/* UART0 initialization */
 	UBRR0L = LO(bauddivider);
@@ -23,7 +37,10 @@ void hwinit(void) {
 	UCSR0C = 1 << UCSZ00 | 1 << UCSZ01;
 
 	/* GPIO initialization */
-	LED_DDR = 1 << LED1;
+	LED_DDR = 1 << LED1 | 1 << LED2;
+
+	/* Enable interrupts */
+	sei();
 }
 
 int main(void) {
