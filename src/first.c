@@ -7,6 +7,7 @@
 #define LO(x) ((x) & 0xff)
 
 void hwinit(void) {
+	/* UART0 initialization */
 	UBRR0L = LO(bauddivider);
 	UBRR0H = HI(bauddivider);
 	UCSR0A = 0;
