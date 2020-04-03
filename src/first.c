@@ -18,10 +18,10 @@
 ISR(USART_RX_vect) {
 	switch (UDR0) {
 		case '1':
-			LED_PORT = 1 << LED2;
+			LED_PORT |= 1 << LED2;
 			break;
 		case '2':
-			LED_PORT = 0 << LED2;
+			LED_PORT &= ~(1 << LED2);
 			break;
 		default:
 			break;
@@ -50,9 +50,7 @@ int main(void) {
 
 	while (1) {
 		i++;
-		LED_PORT = 0 << LED1;
-		_delay_ms(1000);
-		LED_PORT = 1 << LED1;
+		LED_PORT ^= 1 << LED1;
 		_delay_ms(1000);
 	}
 
