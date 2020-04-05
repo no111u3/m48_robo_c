@@ -4,6 +4,7 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include <stdio.h>
 
 #define XTAL F_CPU
 #define baudrate 19200L
@@ -22,9 +23,8 @@ typedef enum {
 	right = 1,
 } direction_t;
 
-const char Prologue[] PROGMEM = "Lighth Follower Navigation Demo\r\n";
-const char OutItem[] PROGMEM = "Direction: ";
-const char NewLine[] PROGMEM = "\r\n";
+const char Prologue[] PROGMEM = "Lighth Follower Navigation Demo\n";
+const char OutItem[] PROGMEM = "Values: %d, %d, %d, %d, %d, %d; Direction: %S\n";
 
 const char Front[] PROGMEM = "Front";
 const char FrontLeft[] PROGMEM = "Front Left";
@@ -38,13 +38,14 @@ const char * const Directions[] PROGMEM = {
 };
 
 volatile uint8_t adc_channels[CHANNEL_NUM];
+volatile uint8_t processed[CHANNEL_NUM];
 volatile direction_t direction;
 
 void sensors_process(void);
 
-void send_str(char *string);
-void send_str_p(const char *string);
-void send_byte(char byte);
+static int uart_putchar(char c, FILE *stream);
+
+static FILE uart_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
 
 ISR(ADC_vect) {
 	uint8_t channel_num = ADMUX & 0x07;
@@ -68,6 +69,9 @@ void sensors_process(void) {
 	uint8_t max_value = 0;
 	for (uint8_t i = 0; i < CHANNEL_NUM; i++) {
 		uint8_t value = 0xff - adc_channels[i];
+
+		processed[i] = value;
+
 		if (value > max_value) {
 			max_value = value;
 			max_channel_num = i;
@@ -77,9 +81,15 @@ void sensors_process(void) {
 }
 
 ISR(USART_TX_vect) {
-	send_str_p(OutItem);
-	send_str_p((char *)pgm_read_word(&Directions[direction]));
-	send_str_p(NewLine);
+	printf_P(
+		OutItem,
+		processed[0],
+		processed[1],
+		processed[2],
+		processed[3],
+		processed[4],
+		processed[5],
+		(char *)pgm_read_word(&Directions[direction]));
 }
 
 void hwinit(void) {
@@ -95,10 +105,15 @@ void hwinit(void) {
 	sei();
 }
 
+void swinit(void) {
+	stdout = &uart_stdout;
+}
+
 int main(void) {
 	hwinit();
+	swinit();
 	/* Display prologue */
-	send_str_p(Prologue);
+	puts_P(Prologue);
 	/* Enable ADC */
 	ADCSRA = 1 << ADEN | 1 << ADIE | 1 << ADSC | 3 << ADPS0;
 
@@ -107,24 +122,14 @@ int main(void) {
 	return 0;
 }
 
-// Send string by pointer
-void send_str(char *string) {
-	while (*string != '\0') {
-		send_byte(*string);
-		string++;
-	}
-}
-
-// Send string by pointer on FLASH
-void send_str_p(const char *string) {
-	while (pgm_read_byte(string) != '\0') {
-		send_byte(pgm_read_byte(string));
-		string++;
-	}
-}
-
 // Send one char
-void send_byte(char byte) {
-	while (!(UCSR0A & (1 << UDRE0)));
-	UDR0 = byte;
+static int uart_putchar(char c, FILE *stream) {
+	if (c == '\n') {
+		uart_putchar('\r', stream);
+	}
+
+	loop_until_bit_is_set(UCSR0A, UDRE0);
+	UDR0 = c;
+
+	return 0;
 }
