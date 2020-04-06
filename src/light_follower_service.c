@@ -13,13 +13,43 @@
 #include <util/delay.h>
 #include <stdio.h>
 
+/*
+ Baudrate settings
+ */
 #define XTAL F_CPU
 #define baudrate 19200L
 #define bauddivider (XTAL / (16 * baudrate) - 1)
 #define HI(x) ((x) >> 8)
 #define LO(x) ((x) & 0xff)
 
+/*
+ Sensors numbers
+ */
 #define CHANNEL_NUM 6
+
+/*
+ Indicator led pins and pwm registers
+ */
+#define RED_LED_PIN 3
+#define RED_LED_PWM OCR2B
+#define GREEN_LED_PIN 5
+#define GREEN_LED_PWM OCR0B
+#define BLUE_LED_PIN 6
+#define BLUE_LED_PWM OCR0A
+
+/*
+ Color defines
+ */
+typedef enum {
+	black = 0x0000,
+	white = 0xffff,
+	yellow = 0xffe0,
+	blue = 0x001f,
+	red = 0xf800,
+	green = 0x07e0,
+	cyan = 0x07ff,
+	magenta = 0xf81f,
+} color_t;
 
 /*
  Directions of light
@@ -51,9 +81,11 @@ volatile uint8_t adc_channels[CHANNEL_NUM];
 volatile uint8_t processed[CHANNEL_NUM];
 volatile direction_t direction;
 
-void sensors_process(void);
+static void sensors_process(void);
 
 static int uart_putchar(char c, FILE *stream);
+
+static void set_color(uint16_t color);
 
 static FILE uart_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
 
@@ -71,7 +103,7 @@ ISR(ADC_vect) {
 
 	ADMUX = (ADMUX & 0xf8) | channel_num;
 
-	ADCSRA = 1 << ADEN | 1 << ADIE | 1 << ADSC | 3 << ADPS0;
+	ADCSRA = _BV(ADEN) | _BV(ADIE) | _BV(ADSC) | 3 << ADPS0;
 }
 
 void sensors_process(void) {
@@ -102,20 +134,30 @@ ISR(USART_TX_vect) {
 		(char *)pgm_read_word(&Directions[direction]));
 }
 
-void hwinit(void) {
+static void hwinit(void) {
+	/* GPIO initialization */
+	DDRD = _BV(RED_LED_PIN) | _BV(GREEN_LED_PIN) | _BV(BLUE_LED_PIN);
+	/* TIMER initialization */
+	TCCR0A = _BV(COM0A0) | _BV(COM0A1) | _BV(COM0B0) | _BV(COM0B1) | _BV(WGM00) | _BV(WGM01);
+	TCCR0B = _BV(CS02);
+
+	TCCR2A = _BV(COM2B0) | _BV(COM2B1) | _BV(WGM20) | _BV(WGM21);
+	TCCR2B = _BV(CS22);
+
+	set_color(black);
 	/* UART0 initialization */
 	UBRR0L = LO(bauddivider);
 	UBRR0H = HI(bauddivider);
 	UCSR0A = 0;
-	UCSR0B = 1 << RXEN0 | 1 << TXEN0 | 1 << RXCIE0 | 1 << TXCIE0;
-	UCSR0C = 1 << UCSZ00 | 1 << UCSZ01;
+	UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0) | _BV(TXCIE0);
+	UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
 	/* ADC initialization */
-	ADMUX = 1 << REFS0 | 1 << ADLAR | 0 << MUX0;
+	ADMUX = _BV(REFS0) | _BV(ADLAR);
 	/* Enable interrupts */
 	sei();
 }
 
-void swinit(void) {
+static void swinit(void) {
 	stdout = &uart_stdout;
 }
 
@@ -125,11 +167,18 @@ int main(void) {
 	/* Display prologue */
 	puts_P(Prologue);
 	/* Enable ADC */
-	ADCSRA = 1 << ADEN | 1 << ADIE | 1 << ADSC | 3 << ADPS0;
+	ADCSRA = _BV(ADEN) | _BV(ADIE) | _BV(ADSC) | 3 << ADPS0;
 
 	while (1) {}
 
 	return 0;
+}
+
+// Set color by 16 bit value
+static void set_color(uint16_t color) {
+	RED_LED_PWM = (color & 0b1111100000000000) >> 8;
+	GREEN_LED_PWM = (color & 0b11111100000) >> 2;
+	BLUE_LED_PWM = (color & 0b11111) << 3;
 }
 
 // Send one char
