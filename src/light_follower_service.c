@@ -41,6 +41,15 @@
  Button defines
  */
 #define WUP_BUTTON_PIN 2
+#define BUTTON_JITTER 12
+
+/*
+ Button states
+ */
+typedef enum {
+	released = 0,
+	pressed,
+} button_t;
 
 /*
  Color defines
@@ -86,7 +95,11 @@ volatile uint8_t adc_channels[CHANNEL_NUM];
 volatile uint8_t processed[CHANNEL_NUM];
 volatile direction_t direction;
 
+volatile button_t button_state;
+
 static void sensors_process(void);
+
+static void button_precess(void);
 
 static int uart_putchar(char c, FILE *stream);
 
@@ -139,6 +152,25 @@ ISR(USART_TX_vect) {
 		(char *)pgm_read_word(&Directions[direction]));
 }
 
+ISR(TIMER0_OVF_vect) {
+	button_precess();
+}
+
+static void button_precess(void) {
+	static volatile uint8_t counter = 0;
+	if ((PIND & _BV(WUP_BUTTON_PIN)) == 0) {
+		counter++;
+	} else {
+		counter = 0;
+	}
+
+	if (counter > BUTTON_JITTER) {
+		button_state = pressed;
+	} else {
+		button_state = released;
+	}
+}
+
 static void hwinit(void) {
 	/* GPIO initialization */
 	/** Enable output pins for indication led */
@@ -146,6 +178,8 @@ static void hwinit(void) {
 	/** Enable pull-up for wake-up button */
 	PORTD = _BV(WUP_BUTTON_PIN);
 	/* TIMER initialization */
+    TIMSK0 = _BV (TOIE0);
+
 	TCCR0A = _BV(COM0A0) | _BV(COM0A1) | _BV(COM0B0) | _BV(COM0B1) | _BV(WGM00) | _BV(WGM01);
 	TCCR0B = _BV(CS02);
 
@@ -177,7 +211,42 @@ int main(void) {
 	/* Enable ADC */
 	ADCSRA = _BV(ADEN) | _BV(ADIE) | _BV(ADSC) | 3 << ADPS0;
 
-	while (1) {}
+	color_t current_color = black;
+
+	while (1) {
+		if (button_state == pressed) {
+			switch (current_color) {
+				case black:
+					current_color = white;
+					break;
+				case white:
+					current_color = yellow;
+					break;
+				case yellow:
+					current_color = blue;
+					break;
+				case blue:
+					current_color = red;
+					break;
+				case red:
+					current_color = green;
+					break;
+				case green:
+					current_color = cyan;
+					break;
+				case cyan:
+					current_color = magenta;
+					break;
+				case magenta:
+				default:
+					current_color = black;
+					break;
+			}
+			set_color(current_color);
+
+			while (button_state != released);
+		}
+	}
 
 	return 0;
 }
