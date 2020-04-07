@@ -38,6 +38,11 @@
 #define BLUE_LED_PWM OCR0A
 
 /*
+ Button defines
+ */
+#define WUP_BUTTON_PIN 2
+
+/*
  Color defines
  */
 typedef enum {
@@ -136,7 +141,10 @@ ISR(USART_TX_vect) {
 
 static void hwinit(void) {
 	/* GPIO initialization */
+	/** Enable output pins for indication led */
 	DDRD = _BV(RED_LED_PIN) | _BV(GREEN_LED_PIN) | _BV(BLUE_LED_PIN);
+	/** Enable pull-up for wake-up button */
+	PORTD = _BV(WUP_BUTTON_PIN);
 	/* TIMER initialization */
 	TCCR0A = _BV(COM0A0) | _BV(COM0A1) | _BV(COM0B0) | _BV(COM0B1) | _BV(WGM00) | _BV(WGM01);
 	TCCR0B = _BV(CS02);
