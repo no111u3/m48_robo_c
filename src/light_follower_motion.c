@@ -309,6 +309,7 @@ int main(void) {
 	}
 
 	puts_P(PSTR("Shutdown..."));
+	set_motors_mode(stop, stop);
 	set_color(red);
 
 	return 0;
