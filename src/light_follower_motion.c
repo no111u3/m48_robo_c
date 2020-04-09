@@ -83,8 +83,8 @@ typedef enum {
 #define MOTOR_E2 2
 #define MOTOR_E2_PORT PORTB
 
-#define MOTOR_E1_PWM OCR1A
-#define MOTOR_E2_PWM OCR1B
+#define MOTOR_E1_PWM OCR1AL
+#define MOTOR_E2_PWM OCR1BL
 
 /*
  Motors mode
@@ -218,7 +218,7 @@ static void hwinit(void) {
 	TCCR2B = _BV(CS22);
 	/** Left and Right motors */
 	TCCR1A = _BV(COM1A1) | _BV(COM1B1) | _BV(WGM10);
-	TCCR1B = _BV(WGM12);
+	TCCR1B = _BV(CS12) | _BV(WGM12);
 
 	set_color(black);
 	/* UART0 initialization */
